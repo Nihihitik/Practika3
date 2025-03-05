@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель администратора</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1, h2 {
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .delete-btn {
+            background-color: #f44336;
+        }
+        .delete-btn:hover {
+            background-color: #d32f2f;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .product-form, .product-list {
+            margin-bottom: 40px;
+        }
+        .categories-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .category-checkbox {
+            display: flex;
+            align-items: center;
+        }
+        .category-checkbox input {
+            width: auto;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Панель администратора</h1>
+
+        <div class="product-form">
+            <h2>Добавление товара</h2>
+            <form id="add-product-form">
+                <div class="form-group">
+                    <label for="product-name">Название:</label>
+                    <input type="text" id="product-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="product-price">Цена (₽):</label>
+                    <input type="number" id="product-price" required>
+                </div>
+                <div class="form-group">
+                    <label for="product-description">Описание:</label>
+                    <textarea id="product-description" rows="4" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Категории:</label>
+                    <div class="categories-container" id="categories-container"></div>
+                </div>
+                <button type="submit">Добавить товар</button>
+            </form>
+        </div>
+
+        <div class="product-list">
+            <h2>Список товаров</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Название</th>
+                        <th>Цена</th>
+                        <th>Описание</th>
+                        <th>Категории</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="products-table-body">
+                    <!-- Сюда будут добавлены товары -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let globalProducts = [];
+        let categories = [];
+
+        window.onload = function() {
+            loadCategories();
+            loadProducts();
+        };
+
+        function loadCategories() {
+            fetch('/api/products')
+                .then(response => response.json())
+                .then(products => {
+                    const uniqueCategories = new Set();
+                    products.forEach(product => {
+                        product.categories.forEach(category => {
+                            uniqueCategories.add(category);
+                        });
+                    });
+
+                    categories = Array.from(uniqueCategories);
+
+                    const categoriesContainer = document.getElementById('categories-container');
+                    categoriesContainer.innerHTML = '';
+
+                    categories.forEach(category => {
+                        const categoryDiv = document.createElement('div');
+                        categoryDiv.className = 'category-checkbox';
+
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.id = `category-${category}`;
+                        checkbox.value = category;
+
+                        const label = document.createElement('label');
+                        label.htmlFor = `category-${category}`;
+                        label.textContent = category;
+
+                        categoryDiv.appendChild(checkbox);
+                        categoryDiv.appendChild(label);
+                        categoriesContainer.appendChild(categoryDiv);
+                    });
+                })
+                .catch(error => console.error('Ошибка при загрузке категорий:', error));
+        }
+
+        function loadProducts() {
+            fetch('/api/products')
+                .then(response => response.json())
+                .then(products => {
+                    globalProducts = products;
+                    displayProducts(products);
+                })
+                .catch(error => console.error('Ошибка при загрузке товаров:', error));
+        }
+
+        function displayProducts(products) {
+            const tableBody = document.getElementById('products-table-body');
+            tableBody.innerHTML = '';
+
+            products.forEach(product => {
+                const row = document.createElement('tr');
+
+                const idCell = document.createElement('td');
+                idCell.textContent = product.id;
+
+                const nameCell = document.createElement('td');
+                nameCell.textContent = product.name;
+
+                const priceCell = document.createElement('td');
+                priceCell.textContent = `${product.price} ₽`;
+
+                const descCell = document.createElement('td');
+                descCell.textContent = product.description;
+
+                const catCell = document.createElement('td');
+                catCell.textContent = product.categories.join(', ');
+
+                const actionsCell = document.createElement('td');
+
+                const editButton = document.createElement('button');
+                editButton.textContent = 'Редактировать';
+                editButton.onclick = function() {
+                    editProduct(product.id);
+                };
+
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Удалить';
+                deleteButton.className = 'delete-btn';
+                deleteButton.onclick = function() {
+                    deleteProduct(product.id);
+                };
+
+                actionsCell.appendChild(editButton);
+                actionsCell.appendChild(deleteButton);
+
+                row.appendChild(idCell);
+                row.appendChild(nameCell);
+                row.appendChild(priceCell);
+                row.appendChild(descCell);
+                row.appendChild(catCell);
+                row.appendChild(actionsCell);
+
+                tableBody.appendChild(row);
+            });
+        }
+
+        document.getElementById('add-product-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('product-name').value;
+            const price = parseInt(document.getElementById('product-price').value);
+            const description = document.getElementById('product-description').value;
+
+            const selectedCategories = [];
+            categories.forEach(category => {
+                const checkbox = document.getElementById(`category-${category}`);
+                if (checkbox && checkbox.checked) {
+                    selectedCategories.push(category);
+                }
+            });
+
+            if (selectedCategories.length === 0) {
+                alert('Выберите хотя бы одну категорию!');
+                return;
+            }
+
+            const newProduct = {
+                name,
+                price,
+                description,
+                categories: selectedCategories
+            };
+
+            fetch('/api/products', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(newProduct)
+            })
+            .then(response => response.json())
+            .then(() => {
+                document.getElementById('add-product-form').reset();
+                loadProducts();
+            })
+            .catch(error => console.error('Ошибка при добавлении товара:', error));
+        });
+
+        function editProduct(id) {
+            const product = globalProducts.find(p => p.id === id);
+
+            if (!product) return;
+
+            document.getElementById('product-name').value = product.name;
+            document.getElementById('product-price').value = product.price;
+            document.getElementById('product-description').value = product.description;
+
+            categories.forEach(category => {
+                const checkbox = document.getElementById(`category-${category}`);
+                if (checkbox) {
+                    checkbox.checked = product.categories.includes(category);
+                }
+            });
+
+            const form = document.getElementById('add-product-form');
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.textContent = 'Сохранить изменения';
+
+            const originalSubmitHandler = form.onsubmit;
+            form.onsubmit = function(e) {
+                e.preventDefault();
+
+                const name = document.getElementById('product-name').value;
+                const price = parseInt(document.getElementById('product-price').value);
+                const description = document.getElementById('product-description').value;
+
+                const selectedCategories = [];
+                categories.forEach(category => {
+                    const checkbox = document.getElementById(`category-${category}`);
+                    if (checkbox && checkbox.checked) {
+                        selectedCategories.push(category);
+                    }
+                });
+
+                if (selectedCategories.length === 0) {
+                    alert('Выберите хотя бы одну категорию!');
+                    return;
+                }
+
+                const updatedProduct = {
+                    name,
+                    price,
+                    description,
+                    categories: selectedCategories
+                };
+
+                fetch(`/api/products/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updatedProduct)
+                })
+                .then(response => response.json())
+                .then(() => {
+                    form.reset();
+                    submitButton.textContent = 'Добавить товар';
+                    form.onsubmit = originalSubmitHandler;
+                    loadProducts();
+                })
+                .catch(error => console.error('Ошибка при обновлении товара:', error));
+            };
+        }
+
+        function deleteProduct(id) {
+            if (confirm('Вы действительно хотите удалить этот товар?')) {
+                fetch(`/api/products/${id}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(() => {
+                    loadProducts();
+                })
+                .catch(error => console.error('Ошибка при удалении товара:', error));
+            }
+        }
+    </script>
+</body>
+</html>
