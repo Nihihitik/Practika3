@@ -181,16 +181,13 @@
                 .then(categoriesData => {
                     console.log('Получены категории от сервера:', categoriesData);
 
-                    // Сохраняем имена категорий в глобальную переменную
                     categories = categoriesData.map(cat => cat.name);
                     console.log('Извлеченные имена категорий:', categories);
 
-                    // Загружаем категории для первой формы
                     createCategoriesCheckboxes("categories-container-1");
                 })
                 .catch(error => {
                     console.error('Ошибка при загрузке категорий из API:', error);
-                    // Если не удалось загрузить категории, используем запасной вариант
                     categories = ["Электроника", "Бытовая техника", "Компьютеры"];
                     console.log('Использую запасные категории:', categories);
                     createCategoriesCheckboxes("categories-container-1");
@@ -234,23 +231,19 @@
                 categoryDiv.appendChild(label);
                 categoriesContainer.appendChild(categoryDiv);
 
-                // Для отладки
                 console.log(`Добавлена категория: ${category} в контейнер ${containerId}`);
             });
 
-            // Для отладки
             console.log(`Всего добавлено категорий: ${categories.length} в контейнер ${containerId}`);
         }
 
         function addProductForm() {
             formCounter++;
 
-            // Создаем новый контейнер для формы
             const formContainer = document.createElement('div');
             formContainer.className = 'product-form-container';
             formContainer.id = `product-form-${formCounter}`;
 
-            // Создаем кнопку удаления
             const removeButton = document.createElement('button');
             removeButton.type = 'button';
             removeButton.className = 'form-remove-btn';
@@ -262,7 +255,6 @@
                 document.getElementById(`product-form-${formCounter}`).remove();
             };
 
-            // Создаем содержимое формы
             formContainer.innerHTML = `
                 <div class="form-group">
                     <label for="product-name-${formCounter}">Название:</label>
@@ -282,13 +274,10 @@
                 </div>
             `;
 
-            // Добавляем кнопку удаления в форму
             formContainer.appendChild(removeButton);
 
-            // Добавляем форму на страницу
             document.getElementById('products-forms-container').appendChild(formContainer);
 
-            // Создаем чекбоксы категорий для новой формы
             createCategoriesCheckboxes(`categories-container-${formCounter}`);
         }
 
@@ -356,7 +345,6 @@
         document.getElementById('add-product-form').addEventListener('submit', function(e) {
             e.preventDefault();
 
-            // Собираем данные всех форм товаров
             const productForms = document.querySelectorAll('.product-form-container');
             const newProducts = [];
 
@@ -366,7 +354,6 @@
                 const price = parseInt(document.getElementById(`product-price-${formId}`).value);
                 const description = document.getElementById(`product-description-${formId}`).value;
 
-                // Собираем выбранные категории
                 const selectedCategories = [];
                 const categoriesContainer = document.getElementById(`categories-container-${formId}`);
                 const checkboxes = categoriesContainer.querySelectorAll('input[type="checkbox"]');
@@ -377,7 +364,6 @@
                     }
                 });
 
-                // Проверка наличия категорий
                 if (selectedCategories.length === 0) {
                     alert(`Выберите хотя бы одну категорию для товара "${name}"!`);
                     return;
@@ -391,7 +377,6 @@
                 });
             });
 
-            // Если есть хотя бы один товар с заполненными данными
             if (newProducts.length > 0) {
                 fetch('/api/products', {
                     method: 'POST',
@@ -402,7 +387,6 @@
                 })
                 .then(response => response.json())
                 .then(() => {
-                    // Сбрасываем формы и обновляем список товаров
                     resetProductForms();
                     loadProducts();
                 })
@@ -411,13 +395,11 @@
         });
 
         function resetProductForms() {
-            // Удаляем все формы кроме первой
             const formContainers = document.querySelectorAll('.product-form-container');
             for (let i = 1; i < formContainers.length; i++) {
                 formContainers[i].remove();
             }
 
-            // Сбрасываем первую форму
             document.getElementById('product-name-1').value = '';
             document.getElementById('product-price-1').value = '';
             document.getElementById('product-description-1').value = '';
@@ -427,7 +409,6 @@
                 checkbox.checked = false;
             });
 
-            // Сбрасываем счетчик форм
             formCounter = 1;
         }
 
@@ -436,25 +417,21 @@
 
             if (!product) return;
 
-            // Сбрасываем все формы перед редактированием
             resetProductForms();
 
             document.getElementById('product-name-1').value = product.name;
             document.getElementById('product-price-1').value = product.price;
             document.getElementById('product-description-1').value = product.description;
 
-            // Выбираем категории
             const checkboxes = document.querySelectorAll('#categories-container-1 input[type="checkbox"]');
             checkboxes.forEach(checkbox => {
                 checkbox.checked = product.categories.includes(checkbox.dataset.category);
             });
 
-            // Меняем поведение формы
             const form = document.getElementById('add-product-form');
             const submitButton = form.querySelector('button[type="submit"]');
             submitButton.textContent = 'Сохранить изменения';
 
-            // Переопределяем обработчик отправки формы
             const originalSubmitHandler = form.onsubmit;
             form.onsubmit = function(e) {
                 e.preventDefault();
@@ -463,7 +440,6 @@
                 const price = parseInt(document.getElementById('product-price-1').value);
                 const description = document.getElementById('product-description-1').value;
 
-                // Собираем выбранные категории
                 const selectedCategories = [];
                 const categoriesContainer = document.getElementById('categories-container-1');
                 const checkboxes = categoriesContainer.querySelectorAll('input[type="checkbox"]');
@@ -474,7 +450,6 @@
                     }
                 });
 
-                // Проверка наличия категорий
                 if (selectedCategories.length === 0) {
                     alert('Выберите хотя бы одну категорию!');
                     return;
@@ -519,12 +494,10 @@
         }
 
         function clearProductForm(formId) {
-            // Очищаем поля формы
             document.getElementById(`product-name-${formId}`).value = '';
             document.getElementById(`product-price-${formId}`).value = '';
             document.getElementById(`product-description-${formId}`).value = '';
 
-            // Снимаем отметки со всех чекбоксов
             const checkboxes = document.querySelectorAll(`#categories-container-${formId} input[type="checkbox"]`);
             checkboxes.forEach(checkbox => {
                 checkbox.checked = false;

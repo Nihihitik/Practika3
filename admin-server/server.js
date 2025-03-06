@@ -33,8 +33,6 @@ function writeProductsData(data) {
   }
 }
 
-// API маршруты должны идти перед статическими файлами
-// Получение категорий
 app.get('/api/categories', (req, res) => {
   try {
     res.setHeader('Content-Type', 'application/json');
@@ -45,7 +43,6 @@ app.get('/api/categories', (req, res) => {
   }
 });
 
-// Получение всех товаров
 app.get('/api/products', (req, res) => {
   try {
     res.setHeader('Content-Type', 'application/json');
@@ -56,7 +53,6 @@ app.get('/api/products', (req, res) => {
   }
 });
 
-// Добавление товара или нескольких товаров
 app.post('/api/products', (req, res) => {
   try {
     res.setHeader('Content-Type', 'application/json');
@@ -79,7 +75,6 @@ app.post('/api/products', (req, res) => {
   }
 });
 
-// Редактирование товара по ID
 app.put('/api/products/:id', (req, res) => {
   try {
     res.setHeader('Content-Type', 'application/json');
@@ -103,7 +98,6 @@ app.put('/api/products/:id', (req, res) => {
   }
 });
 
-// Удаление товара по ID
 app.delete('/api/products/:id', (req, res) => {
   try {
     res.setHeader('Content-Type', 'application/json');
@@ -124,15 +118,12 @@ app.delete('/api/products/:id', (req, res) => {
   }
 });
 
-// Статические файлы после API-маршрутов
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Маршрут для главной страницы
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Обработка ошибок 404
 app.use((req, res) => {
   if (req.url.startsWith('/api/')) {
     res.setHeader('Content-Type', 'application/json');
