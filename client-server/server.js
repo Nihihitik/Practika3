@@ -4,28 +4,41 @@ const fs = require('fs');
 
 const app = express();
 const PORT = 8080;
+const DATA_FILE = path.join(__dirname, '../data/products.json');
 
-// Статические файлы
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Маршрут для получения всех товаров
-app.get('/products', (req, res) => {
+function readProductsData() {
   try {
-    const productsData = fs.readFileSync(path.join(__dirname, '../data/products.json'), 'utf8');
-    const products = JSON.parse(productsData).products;
-    res.json(products);
+    if (!fs.existsSync(DATA_FILE)) {
+      return { products: [], categories: [] };
+    }
+
+    const data = fs.readFileSync(DATA_FILE, 'utf8');
+    try {
+      return JSON.parse(data);
+    } catch (parseError) {
+      return { products: [], categories: [] };
+    }
   } catch (error) {
-    console.error('Ошибка при чтении файла товаров:', error);
+    return { products: [], categories: [] };
+  }
+}
+
+app.get('/api/products', (req, res) => {
+  try {
+    res.setHeader('Content-Type', 'application/json');
+    const data = readProductsData();
+    res.json(data.products);
+  } catch (error) {
     res.status(500).json({ error: 'Ошибка сервера при получении товаров' });
   }
 });
 
-// Маршрут для получения товаров по категории
-app.get('/products/category/:category', (req, res) => {
+app.get('/api/products/category/:category', (req, res) => {
   try {
+    res.setHeader('Content-Type', 'application/json');
     const category = req.params.category;
-    const productsData = fs.readFileSync(path.join(__dirname, '../data/products.json'), 'utf8');
-    const products = JSON.parse(productsData).products;
+    const data = readProductsData();
+    const products = data.products;
 
     const filteredProducts = products.filter(product =>
       product.categories.includes(category)
@@ -33,28 +46,56 @@ app.get('/products/category/:category', (req, res) => {
 
     res.json(filteredProducts);
   } catch (error) {
-    console.error('Ошибка при фильтрации товаров по категории:', error);
     res.status(500).json({ error: 'Ошибка сервера при фильтрации товаров' });
   }
 });
 
-// Маршрут для получения всех категорий
-app.get('/categories', (req, res) => {
+app.get('/api/categories', (req, res) => {
   try {
-    const productsData = fs.readFileSync(path.join(__dirname, '../data/products.json'), 'utf8');
-    const categories = JSON.parse(productsData).categories;
-    res.json(categories);
+    res.setHeader('Content-Type', 'application/json');
+    const data = readProductsData();
+    res.json(data.categories);
   } catch (error) {
-    console.error('Ошибка при чтении категорий:', error);
     res.status(500).json({ error: 'Ошибка сервера при получении категорий' });
   }
 });
 
-// Маршрут для главной страницы
+app.use(express.static(path.join(__dirname, 'public')));
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.use((req, res) => {
+  if (req.url.startsWith('/api/')) {
+    res.setHeader('Content-Type', 'application/json');
+    res.status(404).json({ error: 'API-маршрут не найден' });
+  } else {
+    res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Клиентский сервер запущен на порту ${PORT}`);
+
+  if (!fs.existsSync(DATA_FILE)) {
+    const defaultData = {
+      products: [
+        {
+          id: 1,
+          name: "Пример товара",
+          price: 1000,
+          description: "Описание примера товара",
+          categories: ["Электроника"]
+        }
+      ],
+      categories: [
+        {
+          id: 1,
+          name: "Электроника"
+        }
+      ]
+    };
+    fs.writeFileSync(DATA_FILE, JSON.stringify(defaultData, null, 2), 'utf8');
+  }
 });

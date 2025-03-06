@@ -65,15 +65,53 @@
 
     <script>
         window.onload = function() {
-            loadCategories();
-            loadProducts();
+            window.addEventListener('error', function(event) {
+                console.error('Глобальная ошибка:', event.error);
+            });
+
+            checkApiAvailability()
+                .then(available => {
+                    if (available) {
+                        loadCategories();
+                        loadProducts();
+                    } else {
+                        document.getElementById('category-buttons').innerHTML =
+                            '<p style="color: red;">Сервер API недоступен. Пожалуйста, проверьте соединение.</p>';
+                        document.getElementById('products-container').innerHTML =
+                            '<p style="color: red;">Сервер API недоступен. Пожалуйста, проверьте соединение.</p>';
+                    }
+                });
         };
 
+        function checkApiAvailability() {
+            return fetch('/api/products', { method: 'HEAD' })
+                .then(response => {
+                    return response.ok;
+                })
+                .catch(error => {
+                    return false;
+                });
+        }
+
         function loadCategories() {
+            const categoryButtonsContainer = document.getElementById('category-buttons');
+            categoryButtonsContainer.innerHTML = '<p>Загрузка категорий...</p>';
+
             fetch('/api/categories')
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Ошибка HTTP: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(categories => {
-                    const categoryButtonsContainer = document.getElementById('category-buttons');
+                    categoryButtonsContainer.innerHTML = '';
+
+                    if (!categories || categories.length === 0) {
+                        categoryButtonsContainer.innerHTML = '<p>Категории не найдены.</p>';
+                        return;
+                    }
+
                     categories.forEach(category => {
                         const button = document.createElement('button');
                         button.className = 'category-btn';
@@ -84,21 +122,114 @@
                         categoryButtonsContainer.appendChild(button);
                     });
                 })
-                .catch(error => console.error('Ошибка при загрузке категорий:', error));
+                .catch(error => {
+                    categoryButtonsContainer.innerHTML =
+                        '<p style="color: red;">Ошибка при загрузке категорий. Используем запасной вариант...</p>';
+
+                    fetch('/api/products')
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`Ошибка HTTP: ${response.status}`);
+                            }
+                            return response.json();
+                        })
+                        .then(products => {
+                            if (!products || products.length === 0) {
+                                categoryButtonsContainer.innerHTML = '<p>Категории не найдены.</p>';
+                                return;
+                            }
+
+                            const uniqueCategories = new Set();
+                            products.forEach(product => {
+                                if (product.categories && Array.isArray(product.categories)) {
+                                    product.categories.forEach(category => {
+                                        uniqueCategories.add(category);
+                                    });
+                                }
+                            });
+
+                            categoryButtonsContainer.innerHTML = '';
+
+                            if (uniqueCategories.size === 0) {
+                                categoryButtonsContainer.innerHTML = '<p>Категории не найдены.</p>';
+                                return;
+                            }
+
+                            uniqueCategories.forEach(categoryName => {
+                                const button = document.createElement('button');
+                                button.className = 'category-btn';
+                                button.textContent = categoryName;
+                                button.onclick = function() {
+                                    loadProductsByCategory(categoryName);
+                                };
+                                categoryButtonsContainer.appendChild(button);
+                            });
+                        })
+                        .catch(err => {
+                            categoryButtonsContainer.innerHTML =
+                                '<p style="color: red;">Не удалось загрузить категории. Пожалуйста, обновите страницу.</p>';
+                        });
+                });
         }
 
         function loadProducts() {
+            const productsContainer = document.getElementById('products-container');
+            productsContainer.innerHTML = '<p>Загрузка товаров...</p>';
+
             fetch('/api/products')
-                .then(response => response.json())
-                .then(products => displayProducts(products))
-                .catch(error => console.error('Ошибка при загрузке товаров:', error));
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Ошибка HTTP: ${response.status}`);
+                    }
+
+                    const contentType = response.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        throw new Error(`Неверный тип контента: ${contentType}`);
+                    }
+
+                    return response.json();
+                })
+                .then(products => {
+                    if (!products || products.length === 0) {
+                        productsContainer.innerHTML = '<p>Товары не найдены.</p>';
+                        return;
+                    }
+                    displayProducts(products);
+                })
+                .catch(error => {
+                    productsContainer.innerHTML =
+                        `<p style="color: red;">Ошибка при загрузке товаров: ${error.message}. Пожалуйста, попробуйте позже.</p>`;
+                });
         }
 
         function loadProductsByCategory(categoryName) {
-            fetch(`/api/products/category/${categoryName}`)
-                .then(response => response.json())
-                .then(products => displayProducts(products))
-                .catch(error => console.error('Ошибка при загрузке товаров по категории:', error));
+            const productsContainer = document.getElementById('products-container');
+            productsContainer.innerHTML = `<p>Загрузка товаров категории "${categoryName}"...</p>`;
+
+            fetch(`/api/products/category/${encodeURIComponent(categoryName)}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Ошибка HTTP: ${response.status}`);
+                    }
+
+                    const contentType = response.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        throw new Error(`Неверный тип контента: ${contentType}`);
+                    }
+
+                    return response.json();
+                })
+                .then(products => {
+                    if (!products || products.length === 0) {
+                        productsContainer.innerHTML = `<p>Товары категории "${categoryName}" не найдены.</p>`;
+                        return;
+                    }
+                    displayProducts(products);
+                })
+                .catch(error => {
+                    productsContainer.innerHTML =
+                        `<p style="color: red;">Ошибка при загрузке товаров категории "${categoryName}": ${error.message}. Пожалуйста, попробуйте позже.</p>`;
+                });
         }
 
         function displayProducts(products) {

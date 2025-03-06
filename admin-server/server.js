@@ -8,33 +8,62 @@ const PORT = 3000;
 const DATA_FILE = path.join(__dirname, '../data/products.json');
 
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
 function readProductsData() {
-  const data = fs.readFileSync(DATA_FILE, 'utf8');
-  return JSON.parse(data);
+  try {
+    if (!fs.existsSync(DATA_FILE)) {
+      return { products: [], categories: [] };
+    }
+    const data = fs.readFileSync(DATA_FILE, 'utf8');
+    try {
+      return JSON.parse(data);
+    } catch (parseError) {
+      return { products: [], categories: [] };
+    }
+  } catch (error) {
+    return { products: [], categories: [] };
+  }
 }
 
 function writeProductsData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (error) {
+    console.error('Ошибка при записи данных');
+  }
 }
 
-app.get('/products', (req, res) => {
+// API маршруты должны идти перед статическими файлами
+// Получение категорий
+app.get('/api/categories', (req, res) => {
   try {
+    res.setHeader('Content-Type', 'application/json');
+    const data = readProductsData();
+    res.json(data.categories);
+  } catch (error) {
+    res.status(500).json({ error: 'Ошибка при получении категорий' });
+  }
+});
+
+// Получение всех товаров
+app.get('/api/products', (req, res) => {
+  try {
+    res.setHeader('Content-Type', 'application/json');
     const data = readProductsData();
     res.json(data.products);
   } catch (error) {
-    console.error('Ошибка при чтении товаров:', error);
     res.status(500).json({ error: 'Ошибка при получении товаров' });
   }
 });
 
-app.post('/products', (req, res) => {
+// Добавление товара или нескольких товаров
+app.post('/api/products', (req, res) => {
   try {
+    res.setHeader('Content-Type', 'application/json');
     const data = readProductsData();
     const newProducts = Array.isArray(req.body) ? req.body : [req.body];
 
-    const maxId = data.products.reduce((max, product) => Math.max(max, product.id), 0);
+    const maxId = data.products.reduce((max, product) => Math.max(max, product.id || 0), 0);
 
     newProducts.forEach((product, index) => {
       data.products.push({
@@ -46,14 +75,14 @@ app.post('/products', (req, res) => {
     writeProductsData(data);
     res.status(201).json(newProducts);
   } catch (error) {
-    console.error('Ошибка при добавлении товаров:', error);
     res.status(500).json({ error: 'Ошибка при добавлении товаров' });
   }
 });
 
 // Редактирование товара по ID
-app.put('/products/:id', (req, res) => {
+app.put('/api/products/:id', (req, res) => {
   try {
+    res.setHeader('Content-Type', 'application/json');
     const productId = parseInt(req.params.id);
     const data = readProductsData();
 
@@ -70,13 +99,14 @@ app.put('/products/:id', (req, res) => {
     writeProductsData(data);
     res.json(data.products[index]);
   } catch (error) {
-    console.error('Ошибка при обновлении товара:', error);
     res.status(500).json({ error: 'Ошибка при обновлении товара' });
   }
 });
 
-app.delete('/products/:id', (req, res) => {
+// Удаление товара по ID
+app.delete('/api/products/:id', (req, res) => {
   try {
+    res.setHeader('Content-Type', 'application/json');
     const productId = parseInt(req.params.id);
     const data = readProductsData();
 
@@ -85,21 +115,54 @@ app.delete('/products/:id', (req, res) => {
       return res.status(404).json({ error: 'Товар не найден' });
     }
 
-    // Удаляем товар из массива
     data.products.splice(index, 1);
 
     writeProductsData(data);
     res.json({ message: 'Товар успешно удален' });
   } catch (error) {
-    console.error('Ошибка при удалении товара:', error);
     res.status(500).json({ error: 'Ошибка при удалении товара' });
   }
 });
 
+// Статические файлы после API-маршрутов
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Маршрут для главной страницы
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Обработка ошибок 404
+app.use((req, res) => {
+  if (req.url.startsWith('/api/')) {
+    res.setHeader('Content-Type', 'application/json');
+    res.status(404).json({ error: 'API-маршрут не найден' });
+  } else {
+    res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(`Админ панель запущена на порту ${PORT}`);
+  console.log(`Админ-сервер запущен на порту ${PORT}`);
+
+  if (!fs.existsSync(DATA_FILE)) {
+    const defaultData = {
+      products: [
+        {
+          id: 1,
+          name: "Пример товара",
+          price: 1000,
+          description: "Описание примера товара",
+          categories: ["Электроника"]
+        }
+      ],
+      categories: [
+        {
+          id: 1,
+          name: "Электроника"
+        }
+      ]
+    };
+    writeProductsData(defaultData);
+  }
 });
